@@ -1,88 +1,110 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addContact } from '../../redux/contactsOperations';
-import css from './ContactForm.module.css';
+import TextField from '@mui/material/TextField';
+import FormGroup from '@mui/material/FormGroup';
+import { useAddContactMutation } from 'redux/contacts/contacts-api';
+import { getCashedContacts } from 'redux/contacts/contacts-selectors';
+import { filterActions } from 'redux/filter';
+import FormContainer from 'components/FormContainer';
 
-const ContactForm = () => {
+const initialState = {
+  name: '',
+  number: '',
+};
+
+function ContactForm() {
+  const [formValue, setFormValue] = useState(initialState);
+  const [validateError, setValidateError] = useState('');
+  const cachedContacts = useSelector(getCashedContacts);
+  const [addContact, { isLoading: isAddingContact }] = useAddContactMutation();
   const dispatch = useDispatch();
-  const [name, setName] = useState('');
-  const [number, setNumber] = useState('');
+  const { name, number } = formValue;
 
-  const contacts = useSelector(state => state.contacts.items);
+  const handleSubmit = async evt => {
+    evt.preventDefault();
 
-  const handleChange = (e) => {
-    const { name, value } = e.currentTarget;
-    if (name === 'name') {
-      setName(value);
-    } else if (name === 'number') {
-      setNumber(value);
+    const nameValue = name.trim();
+    const numberValue = number.trim();
+
+    const normalizeName = nameValue.toLocaleLowerCase();
+    const isNameInContacts = cachedContacts.some(
+      contact => contact.name.toLocaleLowerCase() === normalizeName
+    );
+
+    if (isNameInContacts) {
+      setValidateError(`"${nameValue}" is already in contacts`);
+      return;
+    }
+
+    if (nameValue && numberValue) {
+      addContact({ name: nameValue, number: numberValue }).finally(() => {
+        dispatch(filterActions.setFilter(''));
+        setFormValue(initialState);
+      });
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (name === '') {
-      alert('Please enter a name');
-      return;
-    }
-
-    if (number === '') {
-      alert('Please enter a phone number');
-      return;
-    }
-
-    const existingContact = contacts.find(contact => contact.name === name);
-
-    if(existingContact) {
-      alert(`${name} is already in contacts.`);
-      return;
-    }
-
-    const contact = {
-      name,
-      phone: number
-    };
-
-    dispatch(addContact(contact));
-
-    setName('');
-    setNumber('');
+  const handleChange = ({ currentTarget }) => {
+    setFormValue({
+      ...formValue,
+      [currentTarget.name]: currentTarget.value,
+    });
   };
 
   return (
-    <form className={css.TaskEditor} onSubmit={handleSubmit}>
-      <label className={css.TaskEditor_label}>
-        Name
-        <input
-          className={css.TaskEditor_input}
+    <FormContainer
+      title="Phonebook"
+      submit={{
+        handler: handleSubmit,
+        isProgress: isAddingContact,
+        btnText: 'Add contact',
+      }}
+      processFormError={{
+        message: validateError,
+        onClose: () => setValidateError(''),
+      }}
+    >
+      <FormGroup>
+        <TextField
+          id="name"
+          label="Name"
+          variant="outlined"
+          size="small"
           type="text"
           name="name"
-          value={name}
-          pattern="^[a-zA-Zа-яА-Я]+(([' -][a-zA-Zа-яА-Я ])?[a-zA-Zа-яА-Я]*)*$"
-          title="Name may contain only letters, apostrophe, dash and spaces. For example Adrian, Jacob Mercer, Charles de Batz de Castelmore d'Artagnan"
           required
+          inputProps={{
+            maxLength: 40,
+            pattern:
+              "^[a-zA-Zа-яА-Я]+(([' -][a-zA-Zа-яА-Я ])?[a-zA-Zа-яА-Я]*)*$",
+            title:
+              "Name may contain only letters, apostrophe, dash and spaces. For example Adrian, Jacob Mercer, Charles de Batz de Castelmore d'Artagnan",
+          }}
+          value={name}
           onChange={handleChange}
         />
-      </label>
-      <label className={css.TaskEditor_label}>
-        Number
-        <input
-          className={css.TaskEditor_input}
+      </FormGroup>
+      <FormGroup>
+        <TextField
+          id="number"
+          label="Phone"
+          variant="outlined"
+          size="small"
           type="text"
           name="number"
-          value={number}
-          pattern="\+?\d{1,4}?[-.\s]?\(?\d{1,3}?\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}"
-          title="Phone number must be digits and can contain spaces, dashes, parentheses and can start with +"
           required
+          inputProps={{
+            pattern:
+              '\\+?\\d{1,4}?[-.\\s]?\\(?\\d{1,3}?\\)?[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,4}[-.\\s]?\\d{1,9}',
+            title:
+              'Phone number must be digits and can contain spaces, dashes, parentheses and can start with +',
+          }}
+          value={number}
           onChange={handleChange}
         />
-      </label>
-      <button className={css.TaskEditor_button} type="submit">
-        Add contact
-      </button>
-    </form>
+      </FormGroup>
+    </FormContainer>
   );
-};
+}
 
 export default ContactForm;

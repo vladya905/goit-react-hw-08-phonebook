@@ -1,39 +1,37 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchContacts, deleteContact } from '../../redux/contactsOperations';
-import { getVisibleContacts } from '../../redux/contactsSelectors';
-import css from './ContactList.module.css'
+import { useMemo } from 'react';
+import { useSelector } from 'react-redux';
+import List from '@mui/material/List';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useGetContactsQuery } from 'redux/contacts/contacts-api';
+import { filterSelectors } from 'redux/filter';
+import ContactListItem from 'components/ContactList/ContactListItem';
+import styles from './ContactList.module.css';
 
-const ContactList = () => {
-  const dispatch = useDispatch();
-  const contacts = useSelector(getVisibleContacts);
+function ContactList() {
+  const filter = useSelector(filterSelectors.getFilter);
+  const { data: contacts = [], isFetching: isLoadingContacts } =
+    useGetContactsQuery();
+  const visibleContacts = useMemo(() => {
+    const normalizedFilterValue = filter.toLowerCase();
 
-  useEffect(() => {
-    dispatch(fetchContacts());
-  }, [dispatch]);
+    const visibleContacts = contacts.filter(({ name }) =>
+      name.toLowerCase().includes(normalizedFilterValue)
+    );
 
-  const handleDeleteContact = (id) => {
-    dispatch(deleteContact(id));
-  };
+    return visibleContacts;
+  }, [contacts, filter]);
+
+  if (isLoadingContacts) {
+    return <CircularProgress className={styles.loadingIcon} size={60} />;
+  }
 
   return (
-    <ul className={css.TaskList}>
-      {contacts.map(contact => (
-        <li className={css.TaskList_item} key={contact.id}>
-          {contact.name}:{contact.phone}
-
-          <button
-            className={css.TaskList_button}
-            type="button"
-            name="delete"
-            onClick={() => handleDeleteContact(contact.id)}
-          >
-            delete
-          </button>
-        </li>
+    <List className={styles.list}>
+      {visibleContacts.map(contact => (
+        <ContactListItem key={contact.id} contact={contact} />
       ))}
-    </ul>
+    </List>
   );
-};
+}
 
 export default ContactList;
